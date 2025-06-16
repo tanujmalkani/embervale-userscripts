@@ -27,20 +27,19 @@ A Tampermonkey userscript that enhances the bounty board on [https://embervale.t
 2. Click the install link below:
 
 ➡️ [**Install Userscript**](https://raw.githubusercontent.com/tanujmalkani/embervale-userscripts/main/Embervale%20Bounty%20Analyzer-1.6.user.js)
-
-> ⚠️ Make sure to allow script access when prompted by Tampermonkey
+(**Chrome seems to be blocking installs this way, try the manual Option below, if the above method fails**)
 
 ---
 
-### 🔸 Option 2: Manual
+### 🔸 Option 2: Manual (Recommended)
 
 1. Create a new script in Tampermonkey
-2. Paste the contents of `embervale-bounty.user.js`
+2. Paste the contents of `Embervale Bounty Analyzer-1.6.user.js`
 3. Save and visit `https://embervale.tv`
 
 ---
 
-## 🔄 Auto-Updates
+## 🔄 Auto-Updates (currently broken due to Chrome Security Restrictions)
 
 The script includes `@updateURL` and `@downloadURL` headers that point to this GitHub repository, so Tampermonkey will automatically check for updates every 24 hours.
 

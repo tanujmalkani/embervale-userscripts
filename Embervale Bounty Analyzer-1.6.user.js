@@ -1,14 +1,14 @@
 // ==UserScript==
 // @name         Embervale Bounty Analyzer
-// @namespace    https://github.com/yourusername/embervale-userscripts
-// @version      1.0.1
+// @namespace    https://github.com/tanujmalkani/embervale-userscripts
+// @version      1.0.0
 // @description  View, sort, and highlight Embervale bounties by XP/STA and Coins/STA
 // @match        https://embervale.tv/*
 // @grant        none
-// @updateURL    https://github.com/tanujmalkani/embervale-userscripts/raw/refs/heads/main/Embervale%20Bounty%20Analyzer-1.6.user.js
-// @downloadURL  https://github.com/tanujmalkani/embervale-userscripts/raw/refs/heads/main/Embervale%20Bounty%20Analyzer-1.6.user.js
+// @updateURL    https://cdn.jsdelivr.net/gh/tanujmalkani/embervale-userscripts@latest/Embervale%20Bounty%20Analyzer-1.6.user.js
+// @downloadURL  https://cdn.jsdelivr.net/gh/tanujmalkani/embervale-userscripts@latest/Embervale%20Bounty%20Analyzer-1.6.user.js
 //
-
+// ==/UserScript==
 (function () {
     'use strict';
 

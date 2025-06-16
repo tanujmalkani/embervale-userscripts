@@ -26,7 +26,7 @@ A Tampermonkey userscript that enhances the bounty board on [https://embervale.t
 1. Install [Tampermonkey](https://www.tampermonkey.net/) for your browser
 2. Click the install link below:
 
-➡️ [**Install Userscript**](https://raw.githubusercontent.com/yourusername/embervale-userscripts/main/embervale-bounty.user.js)
+➡️ [**Install Userscript**](https://raw.githubusercontent.com/tanujmalkani/embervale-userscripts/main/Embervale Bounty Analyzer-1.6.user.js)
 
 > ⚠️ Make sure to allow script access when prompted by Tampermonkey
 

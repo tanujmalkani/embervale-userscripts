@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Embervale Bounty Analyzer
 // @namespace    https://github.com/tanujmalkani/embervale-userscripts
-// @version      1.0.0
+// @version      1.0.1
 // @description  View, sort, and highlight Embervale bounties by XP/STA and Coins/STA
 // @match        https://embervale.tv/*
 // @grant        none

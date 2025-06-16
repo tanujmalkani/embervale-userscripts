@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Embervale Bounty Analyzer
 // @namespace    https://github.com/yourusername/embervale-userscripts
-// @version      1.0.0
+// @version      1.0.1
 // @description  View, sort, and highlight Embervale bounties by XP/STA and Coins/STA
 // @match        https://embervale.tv/*
 // @grant        none
@@ -173,6 +173,7 @@
         container.appendChild(listContainer);
 
         document.body.appendChild(container);
+        container.querySelector("#bounty-sort-mode").value = sortKey;
 
         const renderList = () => {
             listContainer.innerHTML = "";
@@ -189,8 +190,7 @@
                 bountyCard.style.padding = "6px 0";
                 bountyCard.innerHTML = `
                     <div style="font-weight: bold; color: #eee;">• ${b.name}</div>
-                    <div>XP: ${b.xp} | STA: ${b.stamina}</div>
-                    <div>Coins: ${b.coins}</div>
+                    <div>XP: ${b.xp} | STA: ${b.stamina} | Coins: ${b.coins}</div>
                     <div>XP/STA: ${b.xpPerSta} | C/STA: ${b.coinsPerSta}</div>
                 `;
                 listContainer.appendChild(bountyCard);
@@ -201,11 +201,13 @@
 
         container.querySelector("#bounty-sort-mode").addEventListener("change", e => {
             sortKey = e.target.value;
+            localStorage.setItem("embervale_sortKey", sortKey);
             renderList();
         });
 
         container.querySelector("#toggle-item-value").addEventListener("change", e => {
             includeItemValue = e.target.checked;
+            localStorage.setItem("embervale_includeItems", includeItemValue);
             bounties = extractBountyData(includeItemValue);
             renderList();
         });
@@ -222,8 +224,10 @@
     function updateUI() {
         const board = document.querySelector(".bounty-board");
         if (board && !container) {
-            const bounties = extractBountyData();
-            displayOverlay(bounties);
+            const sortKey = localStorage.getItem("embervale_sortKey") || "xpPerSta";
+            const includeItemValue = localStorage.getItem("embervale_includeItems") === "true";
+            const bounties = extractBountyData(includeItemValue);
+            displayOverlay(bounties, sortKey, includeItemValue);
         } else if (!board && container) {
             container.remove();
             container = null;

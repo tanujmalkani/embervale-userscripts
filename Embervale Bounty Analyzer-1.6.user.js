@@ -5,8 +5,8 @@
 // @description  View, sort, and highlight Embervale bounties by XP/STA and Coins/STA
 // @match        https://embervale.tv/*
 // @grant        none
-// @updateURL    https://cdn.jsdelivr.net/gh/tanujmalkani/embervale-userscripts@latest/Embervale%20Bounty%20Analyzer-1.6.user.js
-// @downloadURL  https://cdn.jsdelivr.net/gh/tanujmalkani/embervale-userscripts@latest/Embervale%20Bounty%20Analyzer-1.6.user.js
+// @updateURL    https://tanujmalkani.github.io/embervale-userscripts/embervale-bounty.user.js
+// @downloadURL  https://tanujmalkani.github.io/embervale-userscripts/embervale-bounty.user.js
 //
 // ==/UserScript==
 (function () {

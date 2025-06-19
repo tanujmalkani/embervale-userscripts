@@ -16,7 +16,7 @@ A Tampermonkey userscript that enhances the bounty board on [https://embervale.t
 - 🎯 Optional: include item coin value in reward calculation
 - 🔽 **Collapse/expand** overlay to reduce screen clutter
 - 🎨 Clean, modern UI overlay with scroll support
-
+- 💥 [NEW] Option to alert if a weekly (Abomination) bounty is available
 ---
 
 ## 📦 Installation

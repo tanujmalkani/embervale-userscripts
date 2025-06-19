@@ -1,74 +1,63 @@
 # 🗡 Embervale Bounty Analyzer
 
-A Tampermonkey userscript that enhances the bounty board on [https://embervale.tv](https://embervale.tv) by displaying and sorting bounties by XP/Stamina or Coins/Stamina, and highlighting the most efficient bounty directly on the page.
-
-![screenshot](./screenshot.png) <!-- Optional: replace with your actual image path -->
+A Tampermonkey userscript (or bookmarklet) that enhances the bounty board on [https://embervale.tv](https://embervale.tv) by displaying and sorting bounties by XP/Stamina or Coins/Stamina, highlighting the most efficient bounty, and optionally alerting you for weekly targets like Abominations.
 
 ---
 
 ## ✨ Features
 
-- ✅ **Auto popup** when bounty board is visible
-- 🔢 **Sort bounties** by:
+- ✅ Auto popup when bounty board is visible
+- 🔢 Sort bounties by:
   - XP / Stamina
   - Coins / Stamina
-- 💡 **Highlights the best bounty** on the actual page
-- 🎯 Optional: include item coin value in reward calculation
-- 🔽 **Collapse/expand** overlay to reduce screen clutter
-- 🎨 Clean, modern UI overlay with scroll support
-- 💥 [NEW] Option to alert if a weekly (Abomination) bounty is available
+- 💡 Highlights the most efficient bounty on the page
+- 📦 Toggle to include coin value from item rewards
+- 💥 Alerts for weekly bounties (e.g. *Type: Abomination*)
+- 🔽 Collapsible modern overlay UI
+- 💾 Preferences saved (sort mode, toggles)
+
 ---
 
 ## 📦 Installation
 
 ### 🔸 Option 1: Tampermonkey (Recommended)
 
-1. Install [Tampermonkey](https://www.tampermonkey.net/) for your browser
-2. Click the install link below:
+1. Install [Tampermonkey](https://www.tampermonkey.net/)
+2. Click to install the script:
 
-➡️ [**Install Userscript**](https://raw.githubusercontent.com/tanujmalkani/embervale-userscripts/main/Embervale%20Bounty%20Analyzer-1.6.user.js)
-(**Chrome seems to be blocking installs this way, try the manual Option below, if the above method fails**)
+➡️ [**Install via GitHub Pages**](https://tanujmalkani.github.io/embervale-userscripts/embervale-bounty.user.js)
 
----
-
-### 🔸 Option 2: Manual (Recommended)
-
-1. Create a new script in Tampermonkey
-2. Paste the contents of `Embervale Bounty Analyzer-1.6.user.js`
-3. Save and visit `https://embervale.tv`
+> ⚠️ Tampermonkey will auto-update the script using the version hosted on GitHub Pages.
 
 ---
 
-## 🔄 Auto-Updates (currently broken due to Chrome Security Restrictions)
+### 🔸 Option 2: Bookmarklet (No extensions needed)
 
-The script includes `@updateURL` and `@downloadURL` headers that point to this GitHub repository, so Tampermonkey will automatically check for updates every 24 hours.
+Want to use the script without Tampermonkey?
+
+1. Visit the link below:
+   👉 [📌 **Bookmarklet Installer**](https://tanujmalkani.github.io/embervale-userscripts/bookmarklet-installer.html)
+2. Drag the button to your bookmarks bar
+3. Go to [https://embervale.tv](https://embervale.tv) and click the bookmark
+
+> 📝 The bookmarklet always loads the latest version from GitHub.
 
 ---
 
-## 🧩 Example Use Case
+## 🧪 Example Use
 
-1. Go to [https://embervale.tv](https://embervale.tv)
+1. Visit `https://embervale.tv`
 2. Open the bounty board
-3. The script shows a popup with all bounty info
-4. Choose your sort preference (XP/STA or Coins/STA)
-5. The top bounty is highlighted directly on the board!
-
----
-
-## 🧠 Planned Features (optional)
- (open to requests)
----
-
-## 📸 Screenshot
-
-> *(Add a screenshot or screen recording here)*
+3. The overlay appears with sortable bounty list
+4. Click to sort by XP or Coins efficiency
+5. See the best bounty highlighted directly on the board!
 
 ---
 
 ## 🛠 Developer
 
 - **Author:** [@tanujmalkani](https://github.com/tanujmalkani)
-- Contributions, feedback, and feature requests are welcome!
+- Contributions welcome via PR or issue
 
 ---
 

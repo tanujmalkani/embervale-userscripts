@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Embervale Bounty Analyzer
 // @namespace    https://github.com/tanujmalkani/embervale-userscripts
-// @version      1.0.1
+// @version      1.1.0
 // @description  View, sort, and highlight Embervale bounties by XP/STA and Coins/STA
 // @match        https://embervale.tv/*
 // @grant        none
@@ -81,12 +81,14 @@
             const xp = getNumberFromItem(item, "core/xp.webp");
             const stamina = getNumberFromItem(item, "stamina.webp");
             const coins = parseCoins(item, includeItemValue);
+            const textContent = item.textContent.toLowerCase();
 
             bounties.push({
                 name,
                 xp,
                 stamina,
                 coins,
+                textContent,
                 xpPerSta: stamina ? (xp / stamina).toFixed(2) : "∞",
                 coinsPerSta: stamina ? (coins / stamina).toFixed(2) : "∞",
                 element: item
@@ -109,7 +111,7 @@
         }
     }
 
-    function displayOverlay(bountiesRaw, sortKey = "xpPerSta", includeItemValue = false) {
+    function displayOverlay(bountiesRaw, sortKey = "xpPerSta", includeItemValue = false, alertWeeklies = false) {
         if (container) container.remove();
 
         let bounties = extractBountyData(includeItemValue);
@@ -153,6 +155,10 @@
             <label>
                 <input type="checkbox" id="toggle-item-value" ${includeItemValue ? "checked" : ""} />
                 Include item value in Coin Reward
+            </label><br>
+            <label>
+                <input type="checkbox" id="toggle-weekly-alert" ${alertWeeklies ? "checked" : ""} />
+                Alert for Weeklies
             </label>
         `;
         container.appendChild(toggleRow);
@@ -168,6 +174,12 @@
         `;
         container.appendChild(sortRow);
 
+        const alertContainer = document.createElement("div");
+        alertContainer.id = "weekly-alert";
+        alertContainer.style.marginBottom = "12px";
+        alertContainer.style.color = "#ffd700";
+        container.appendChild(alertContainer);
+
         const listContainer = document.createElement("div");
         listContainer.id = "bounty-list";
         container.appendChild(listContainer);
@@ -177,11 +189,25 @@
 
         const renderList = () => {
             listContainer.innerHTML = "";
+            alertContainer.innerHTML = "";
+
+            if (alertWeeklies) {
+                const weeklyMatches = bounties.filter(b => b.textContent.includes("type: abomination"));
+                if (weeklyMatches.length > 0) {
+                    weeklyMatches.forEach(w => {
+                        const div = document.createElement("div");
+                        div.textContent = `💥💥 Weekly : ${w.name} 💥💥`;
+                        alertContainer.appendChild(div);
+                    });
+                }
+            }
+
             const sorted = [...bounties].sort((a, b) => {
                 if (sortKey === "xpPerSta") return parseFloat(b.xpPerSta) - parseFloat(a.xpPerSta);
                 if (sortKey === "coinsPerSta") return parseFloat(b.coinsPerSta) - parseFloat(a.coinsPerSta);
                 return 0;
             });
+
             highlightTopBounty(sorted[0]);
 
             sorted.forEach(b => {
@@ -212,10 +238,17 @@
             renderList();
         });
 
+        container.querySelector("#toggle-weekly-alert").addEventListener("change", e => {
+            alertWeeklies = e.target.checked;
+            localStorage.setItem("embervale_alertWeeklies", alertWeeklies);
+            renderList();
+        });
+
         container.querySelector("#collapse-overlay").addEventListener("click", e => {
             collapsed = !collapsed;
             toggleRow.style.display = collapsed ? "none" : "block";
             sortRow.style.display = collapsed ? "none" : "block";
+            alertContainer.style.display = collapsed ? "none" : "block";
             listContainer.style.display = collapsed ? "none" : "block";
             e.target.textContent = collapsed ? "▶" : "🔽";
         });
@@ -226,8 +259,9 @@
         if (board && !container) {
             const sortKey = localStorage.getItem("embervale_sortKey") || "xpPerSta";
             const includeItemValue = localStorage.getItem("embervale_includeItems") === "true";
+            const alertWeeklies = localStorage.getItem("embervale_alertWeeklies") === "true";
             const bounties = extractBountyData(includeItemValue);
-            displayOverlay(bounties, sortKey, includeItemValue);
+            displayOverlay(bounties, sortKey, includeItemValue, alertWeeklies);
         } else if (!board && container) {
             container.remove();
             container = null;

@@ -5,6 +5,8 @@
 // @description  Sort, highlight, and filter bounties by XP/STA, coins, weekly type, and side quest filters
 // @match        https://embervale.tv/*
 // @grant        none
+// @updateURL    https://tanujmalkani.github.io/embervale-userscripts/embervale-bounty.user.js
+// @downloadURL  https://tanujmalkani.github.io/embervale-userscripts/embervale-bounty.user.js
 // ==/UserScript==
 
 (function () {

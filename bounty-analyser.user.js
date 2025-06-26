@@ -1,281 +1,325 @@
 // ==UserScript==
-// @name         Embervale Bounty Analyzer (Modern UI + Highlight + Persistence + Weekly Alert)
+// @name         Embervale Bounty Analyzer (Side Quest Edition)
 // @namespace    http://tampermonkey.net/
-// @version      1.8
-// @description  View, sort, and highlight best bounty by XP/STA or Coins/STA with preference saving and weekly alert
+// @version      2.0
+// @description  Sort, highlight, and filter bounties by XP/STA, coins, weekly type, and side quest filters
 // @match        https://embervale.tv/*
 // @grant        none
 // ==/UserScript==
 
 (function () {
-    'use strict';
+  'use strict';
 
-    let container = null;
+  let container = null;
 
-    function waitForElement(selector, timeout = 30000) {
-        return new Promise((resolve, reject) => {
-            const interval = setInterval(() => {
-                const el = document.querySelector(selector);
-                if (el) {
-                    clearInterval(interval);
-                    resolve(el);
-                }
-            }, 500);
-            setTimeout(() => {
-                clearInterval(interval);
-                reject(new Error(`Timeout waiting for ${selector}`));
-            }, timeout);
-        });
-    }
+  const CLASS_OPTIONS = ["None", "Warrior", "Knight", "Rogue", "Ranger", "Mage"];
+  const TYPE_OPTIONS = [
+    "None", "Abomination", "Aquatic", "Beast", "Construct", "Dragon", "Elemental",
+    "Humanoid", "Insect", "Mimic", "Plant", "Slime", "Undead"
+  ];
+  const STAR_OPTIONS = ["None", "1", "2", "3", "4", "5"];
 
-    function getNumberFromItem(item, imageKey) {
-        const rows = item.querySelectorAll(".bounty-information-text-item");
-        for (const row of rows) {
-            const icon = row.children[0];
-            const text = row.children[1];
-            if (!icon || !text) continue;
-            const style = icon.getAttribute("style") || "";
-            if (style.includes(imageKey)) {
-                return parseInt(text.textContent.trim()) || 0;
-            }
+  function waitForElement(selector, timeout = 30000) {
+    return new Promise((resolve, reject) => {
+      const interval = setInterval(() => {
+        const el = document.querySelector(selector);
+        if (el) {
+          clearInterval(interval);
+          resolve(el);
         }
-        return 0;
+      }, 500);
+      setTimeout(() => {
+        clearInterval(interval);
+        reject(new Error(`Timeout waiting for ${selector}`));
+      }, timeout);
+    });
+  }
+  function getNumberFromItem(item, imageKey) {
+    const rows = item.querySelectorAll(".bounty-information-text-item");
+    for (const row of rows) {
+      const icon = row.children[0];
+      const text = row.children[1];
+      if (!icon || !text) continue;
+      const style = icon.getAttribute("style") || "";
+      if (style.includes(imageKey)) {
+        return parseInt(text.textContent.trim()) || 0;
+      }
     }
+    return 0;
+  }
 
-    function parseCoins(item, includeItemValue) {
-        let bountySilver = 0, bountyCopper = 0;
-        let itemSilver = 0, itemCopper = 0;
+  function parseCoins(item, includeItemValue) {
+    let bountySilver = 0, bountyCopper = 0;
+    let itemSilver = 0, itemCopper = 0;
 
-        const moneyBlocks = item.querySelectorAll('.money-img');
-        moneyBlocks.forEach(img => {
-            const container = img.closest('div');
-            const valueEl = Array.from(container.children).find(
-                el => el !== img && /^\d+$/.test(el.textContent.trim())
-            );
-            const value = valueEl ? parseInt(valueEl.textContent.trim()) : 0;
-            const isInsideItemTooltip = img.closest(".rpg-tooltip-content");
+    const moneyBlocks = item.querySelectorAll('.money-img');
+    moneyBlocks.forEach(img => {
+      const container = img.closest('div');
+      const valueEl = Array.from(container.children).find(
+        el => el !== img && /^\d+$/.test(el.textContent.trim())
+      );
+      const value = valueEl ? parseInt(valueEl.textContent.trim()) : 0;
+      const isInsideItemTooltip = img.closest(".rpg-tooltip-content");
 
-            if (img.src.includes('silver.webp')) {
-                if (isInsideItemTooltip) itemSilver = value;
-                else bountySilver = value;
-            }
-            if (img.src.includes('copper.webp')) {
-                if (isInsideItemTooltip) itemCopper = value;
-                else bountyCopper = value;
-            }
-        });
+      if (img.src.includes('silver.webp')) {
+        if (isInsideItemTooltip) itemSilver = value;
+        else bountySilver = value;
+      }
+      if (img.src.includes('copper.webp')) {
+        if (isInsideItemTooltip) itemCopper = value;
+        else bountyCopper = value;
+      }
+    });
 
-        const totalSilver = bountySilver + (includeItemValue ? itemSilver : 0);
-        const totalCopper = bountyCopper + (includeItemValue ? itemCopper : 0);
-        return totalSilver * 100 + totalCopper;
-    }
+    const totalSilver = bountySilver + (includeItemValue ? itemSilver : 0);
+    const totalCopper = bountyCopper + (includeItemValue ? itemCopper : 0);
+    return totalSilver * 100 + totalCopper;
+  }
 
-    function extractBountyData(includeItemValue = false) {
-        const bounties = [];
-        const bountyItems = document.querySelectorAll(".bounty-item");
+  function extractBountyData(includeItemValue = false) {
+    const bounties = [];
+    const bountyItems = document.querySelectorAll(".bounty-item");
 
-        bountyItems.forEach(item => {
-            const name = item.querySelector(".bounty-title-container span")?.textContent.trim() || "Unknown";
-            const xp = getNumberFromItem(item, "core/xp.webp");
-            const stamina = getNumberFromItem(item, "stamina.webp");
-            const coins = parseCoins(item, includeItemValue);
-            const textContent = item.textContent.toLowerCase();
+    bountyItems.forEach(item => {
+      const name = item.querySelector(".bounty-title-container span")?.textContent.trim() || "Unknown";
+      const xp = getNumberFromItem(item, "core/xp.webp");
+      const stamina = getNumberFromItem(item, "stamina.webp");
+      const coins = parseCoins(item, includeItemValue);
+      const textContent = item.textContent.toLowerCase();
 
-            bounties.push({
-                name,
-                xp,
-                stamina,
-                coins,
-                textContent,
-                xpPerSta: stamina ? (xp / stamina).toFixed(2) : "∞",
-                coinsPerSta: stamina ? (coins / stamina).toFixed(2) : "∞",
-                element: item
-            });
-        });
+      bounties.push({
+        name,
+        xp,
+        stamina,
+        coins,
+        textContent,
+        xpPerSta: stamina ? (xp / stamina).toFixed(2) : "∞",
+        coinsPerSta: stamina ? (coins / stamina).toFixed(2) : "∞",
+        element: item
+      });
+    });
 
-        return bounties;
-    }
+    return bounties;
+  }
 
-    function highlightTopBounty(topBounty) {
-        document.querySelectorAll(".bounty-item").forEach(el => {
-            el.style.outline = "none";
-            el.style.boxShadow = "none";
-        });
+  function clearHighlights() {
+    document.querySelectorAll(".bounty-item").forEach(el => {
+      el.style.outline = "none";
+      el.style.boxShadow = "none";
+    });
+  }
 
-        if (topBounty?.element) {
-            topBounty.element.style.outline = "2px solid gold";
-            topBounty.element.style.boxShadow = "0 0 10px 3px rgba(255, 215, 0, 0.6)";
-            topBounty.element.scrollIntoView({ behavior: "smooth", block: "center" });
-        }
-    }
-
-    function displayOverlay(bountiesRaw, sortKey = "xpPerSta", includeItemValue = false, alertWeeklies = false) {
-        if (container) container.remove();
-
-        let bounties = extractBountyData(includeItemValue);
-        let collapsed = false;
-
-        container = document.createElement("div");
-        container.style.position = "fixed";
-        container.style.top = "20px";
-        container.style.right = "20px";
-        container.style.background = "rgba(20, 20, 20, 0.85)";
-        container.style.backdropFilter = "blur(4px)";
-        container.style.color = "#fff";
-        container.style.padding = "16px";
-        container.style.borderRadius = "12px";
-        container.style.boxShadow = "0 8px 24px rgba(0,0,0,0.6)";
-        container.style.fontFamily = "Segoe UI, Roboto, sans-serif";
-        container.style.fontSize = "14px";
-        container.style.lineHeight = "1.4";
-        container.style.zIndex = 999999;
-        container.style.maxHeight = "80vh";
-        container.style.overflowY = "auto";
-        container.style.minWidth = "320px";
-
-        const header = document.createElement("div");
-        header.style.display = "flex";
-        header.style.justifyContent = "space-between";
-        header.style.alignItems = "center";
-        header.style.marginBottom = "12px";
-        header.innerHTML = `
-            <div style="font-weight: bold; font-size: 16px;">🗡 Embervale Bounties</div>
-            <div>
-                <button id="collapse-overlay" title="Collapse"
-                  style="background: none; border: none; color: #ccc; font-size: 16px; cursor: pointer;">🔽</button>
-            </div>
-        `;
-        container.appendChild(header);
-
-        const toggleRow = document.createElement("div");
-        toggleRow.style.marginBottom = "12px";
-        toggleRow.innerHTML = `
-            <label>
-                <input type="checkbox" id="toggle-item-value" ${includeItemValue ? "checked" : ""} />
-                Include item value in Coin Reward
-            </label><br>
-            <label>
-                <input type="checkbox" id="toggle-weekly-alert" ${alertWeeklies ? "checked" : ""} />
-                Alert for Weeklies
-            </label>
-        `;
-        container.appendChild(toggleRow);
-
-        const sortRow = document.createElement("div");
-        sortRow.style.marginBottom = "12px";
-        sortRow.innerHTML = `
-            <label for="bounty-sort-mode" style="margin-right: 8px;">Sort by:</label>
-            <select id="bounty-sort-mode" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #555; background: #222; color: white;">
-                <option value="xpPerSta">XP / STA</option>
-                <option value="coinsPerSta">Coins / STA</option>
-            </select>
-        `;
-        container.appendChild(sortRow);
-
-        const alertContainer = document.createElement("div");
-        alertContainer.id = "weekly-alert";
-        alertContainer.style.marginBottom = "12px";
-        alertContainer.style.color = "#ffd700";
-        container.appendChild(alertContainer);
-
-        const listContainer = document.createElement("div");
-        listContainer.id = "bounty-list";
-        container.appendChild(listContainer);
-
-        document.body.appendChild(container);
-        container.querySelector("#bounty-sort-mode").value = sortKey;
-
-        const renderList = () => {
-            listContainer.innerHTML = "";
-            alertContainer.innerHTML = "";
-
-            if (alertWeeklies) {
-                const weeklyMatches = bounties.filter(b => b.textContent.includes("type: abomination"));
-                if (weeklyMatches.length > 0) {
-                    weeklyMatches.forEach(w => {
-                        const div = document.createElement("div");
-                        div.textContent = `💥💥 Weekly : ${w.name} 💥💥`;
-                        alertContainer.appendChild(div);
-                    });
-                }
-            }
-
-            const sorted = [...bounties].sort((a, b) => {
-                if (sortKey === "xpPerSta") return parseFloat(b.xpPerSta) - parseFloat(a.xpPerSta);
-                if (sortKey === "coinsPerSta") return parseFloat(b.coinsPerSta) - parseFloat(a.coinsPerSta);
-                return 0;
-            });
-
-            highlightTopBounty(sorted[0]);
-
-            sorted.forEach(b => {
-                const bountyCard = document.createElement("div");
-                bountyCard.style.borderBottom = "1px solid #333";
-                bountyCard.style.padding = "6px 0";
-                bountyCard.innerHTML = `
-                    <div style="font-weight: bold; color: #eee;">• ${b.name}</div>
-                    <div>XP: ${b.xp} | STA: ${b.stamina} | Coins: ${b.coins}</div>
-                    <div>XP/STA: ${b.xpPerSta} | C/STA: ${b.coinsPerSta}</div>
-                `;
-                listContainer.appendChild(bountyCard);
-            });
-        };
-
-        renderList();
-
-        container.querySelector("#bounty-sort-mode").addEventListener("change", e => {
-            sortKey = e.target.value;
-            localStorage.setItem("embervale_sortKey", sortKey);
-            renderList();
-        });
-
-        container.querySelector("#toggle-item-value").addEventListener("change", e => {
-            includeItemValue = e.target.checked;
-            localStorage.setItem("embervale_includeItems", includeItemValue);
-            bounties = extractBountyData(includeItemValue);
-            renderList();
-        });
-
-        container.querySelector("#toggle-weekly-alert").addEventListener("change", e => {
-            alertWeeklies = e.target.checked;
-            localStorage.setItem("embervale_alertWeeklies", alertWeeklies);
-            renderList();
-        });
-
-        container.querySelector("#collapse-overlay").addEventListener("click", e => {
-            collapsed = !collapsed;
-            toggleRow.style.display = collapsed ? "none" : "block";
-            sortRow.style.display = collapsed ? "none" : "block";
-            alertContainer.style.display = collapsed ? "none" : "block";
-            listContainer.style.display = collapsed ? "none" : "block";
-            e.target.textContent = collapsed ? "▶" : "🔽";
-        });
-    }
-
-    function updateUI() {
-        const board = document.querySelector(".bounty-board");
-        if (board && !container) {
-            const sortKey = localStorage.getItem("embervale_sortKey") || "xpPerSta";
-            const includeItemValue = localStorage.getItem("embervale_includeItems") === "true";
-            const alertWeeklies = localStorage.getItem("embervale_alertWeeklies") === "true";
-            const bounties = extractBountyData(includeItemValue);
-            displayOverlay(bounties, sortKey, includeItemValue, alertWeeklies);
-        } else if (!board && container) {
-            container.remove();
-            container = null;
-        }
-    }
-
-    function observeBountyBoard() {
-        const observer = new MutationObserver(updateUI);
-        observer.observe(document.body, { childList: true, subtree: true });
-    }
-
-    const run = async () => {
-        await waitForElement(".bounty-board").catch(console.warn);
-        updateUI();
-        observeBountyBoard();
+  function highlightBounty(bounty, color = "gold") {
+    const style = {
+      gold: ["2px solid gold", "0 0 10px 3px rgba(255,215,0,0.6)"],
+      purple: ["2px solid #a050f5", "0 0 10px rgba(160,80,245,0.6)"]
     };
+    if (bounty?.element) {
+      bounty.element.style.outline = style[color][0];
+      bounty.element.style.boxShadow = style[color][1];
+    }
+  }
+  function displayOverlay(bounties, sortKey, includeItemValue, alertWeeklies, highlightSideQuests, classFilter, typeFilter, starsFilter) {
+    if (container) container.remove();
+    clearHighlights();
 
-    run();
+    container = document.createElement("div");
+    container.style.position = "fixed";
+    container.style.top = "20px";
+    container.style.right = "20px";
+    container.style.background = "rgba(20,20,20,0.85)";
+    container.style.backdropFilter = "blur(4px)";
+    container.style.color = "#fff";
+    container.style.padding = "16px";
+    container.style.borderRadius = "12px";
+    container.style.boxShadow = "0 8px 24px rgba(0,0,0,0.6)";
+    container.style.fontFamily = "Segoe UI, sans-serif";
+    container.style.zIndex = 999999;
+    container.style.maxHeight = "80vh";
+    container.style.overflowY = "auto";
+    container.style.minWidth = "340px";
+
+    const header = document.createElement("div");
+    header.style.display = "flex";
+    header.style.justifyContent = "space-between";
+    header.style.alignItems = "center";
+    header.style.marginBottom = "12px";
+    header.innerHTML = `
+      <div style="font-weight: bold; font-size: 16px;">🗡 Embervale Bounties</div>
+      <button id="collapse-overlay" style="background:none;border:none;color:#ccc;font-size:16px;">🔽</button>
+    `;
+    container.appendChild(header);
+
+    const options = document.createElement("div");
+    options.style.marginBottom = "12px";
+    options.innerHTML = `
+      <label><input type="checkbox" id="toggle-item-value" ${includeItemValue ? "checked" : ""}/> Include item value</label><br>
+      <label><input type="checkbox" id="toggle-weekly-alert" ${alertWeeklies ? "checked" : ""}/> Alert for Weeklies</label><br>
+      <label><input type="checkbox" id="toggle-sidequest" ${highlightSideQuests ? "checked" : ""}/> Highlight Side Quests</label><br><br>
+      <div><b>Side Quest Filters:</b></div>
+      <label>Class:
+        <select id="filter-class">${CLASS_OPTIONS.map(c => `<option ${c === classFilter ? "selected" : ""}>${c}</option>`).join("")}</select>
+      </label><br>
+      <label>Type:
+        <select id="filter-type">${TYPE_OPTIONS.map(t => `<option ${t === typeFilter ? "selected" : ""}>${t}</option>`).join("")}</select>
+      </label><br>
+      <label>Stars:
+        <select id="filter-stars">${STAR_OPTIONS.map(s => `<option ${s === starsFilter ? "selected" : ""}>${s}</option>`).join("")}</select>
+      </label>
+    `;
+    container.appendChild(options);
+
+    const sortRow = document.createElement("div");
+    sortRow.style.margin = "12px 0";
+    sortRow.innerHTML = `
+      <label for="bounty-sort-mode">Sort by:</label>
+      <select id="bounty-sort-mode">
+        <option value="xpPerSta" ${sortKey === "xpPerSta" ? "selected" : ""}>XP / STA</option>
+        <option value="coinsPerSta" ${sortKey === "coinsPerSta" ? "selected" : ""}>Coins / STA</option>
+      </select>
+    `;
+    container.appendChild(sortRow);
+
+    const alertDiv = document.createElement("div");
+    alertDiv.id = "weekly-alert";
+    alertDiv.style.color = "#ffd700";
+    container.appendChild(alertDiv);
+
+    const list = document.createElement("div");
+    list.id = "bounty-list";
+    container.appendChild(list);
+
+    document.body.appendChild(container);
+    function renderList() {
+      list.innerHTML = "";
+      alertDiv.innerHTML = "";
+      clearHighlights();
+
+      const sorted = [...bounties].sort((a, b) =>
+        sortKey === "xpPerSta"
+          ? parseFloat(b.xpPerSta) - parseFloat(a.xpPerSta)
+          : parseFloat(b.coinsPerSta) - parseFloat(a.coinsPerSta)
+      );
+
+      highlightBounty(sorted[0], "gold");
+
+      sorted.forEach(b => {
+        const isWeekly =
+          alertWeeklies &&
+          typeFilter !== "None" &&
+          b.textContent.includes(`type: ${typeFilter.toLowerCase()}`);
+
+        const isClassMatch =
+          classFilter !== "None" &&
+          b.textContent.includes(classFilter.toLowerCase());
+
+        const isTypeMatch =
+          typeFilter !== "None" &&
+          b.textContent.includes(typeFilter.toLowerCase());
+
+        const isStarsMatch =
+          starsFilter !== "None" &&
+          b.textContent.includes(`${starsFilter}★`);
+
+        const isSideQuest =
+          highlightSideQuests && (isClassMatch || isTypeMatch || isStarsMatch);
+
+        if (isWeekly) {
+          const div = document.createElement("div");
+          div.textContent = `💥💥 Weekly : ${b.name} 💥💥`;
+          alertDiv.appendChild(div);
+        }
+
+        if (isSideQuest) highlightBounty(b, "purple");
+
+        const el = document.createElement("div");
+        el.style.borderBottom = "1px solid #333";
+        el.style.padding = "6px 0";
+        el.innerHTML = `
+          <div style="font-weight:bold;color:${isSideQuest ? '#c186f6' : '#eee'};">
+            ${isSideQuest ? `💠 Side Quest Match: ${b.name}` : `• ${b.name}`}
+          </div>
+          <div>XP: ${b.xp} | STA: ${b.stamina} | Coins: ${b.coins}</div>
+          <div>XP/STA: ${b.xpPerSta} | C/STA: ${b.coinsPerSta}</div>
+        `;
+        list.appendChild(el);
+      });
+    }
+
+    renderList();
+
+    container.querySelector("#bounty-sort-mode").addEventListener("change", e => {
+      sortKey = e.target.value;
+      localStorage.setItem("embervale_sortKey", sortKey);
+      renderList();
+    });
+
+    container.querySelector("#toggle-item-value").addEventListener("change", e => {
+      includeItemValue = e.target.checked;
+      localStorage.setItem("embervale_includeItems", includeItemValue);
+      bounties = extractBountyData(includeItemValue);
+      renderList();
+    });
+
+    container.querySelector("#toggle-weekly-alert").addEventListener("change", e => {
+      alertWeeklies = e.target.checked;
+      localStorage.setItem("embervale_alertWeeklies", alertWeeklies);
+      renderList();
+    });
+
+    container.querySelector("#toggle-sidequest").addEventListener("change", e => {
+      highlightSideQuests = e.target.checked;
+      localStorage.setItem("embervale_highlightSideQuests", highlightSideQuests);
+      renderList();
+    });
+
+    container.querySelector("#filter-class").addEventListener("change", e => {
+      classFilter = e.target.value;
+      localStorage.setItem("embervale_sidequestClass", classFilter);
+      renderList();
+    });
+
+    container.querySelector("#filter-type").addEventListener("change", e => {
+      typeFilter = e.target.value;
+      localStorage.setItem("embervale_sidequestType", typeFilter);
+      renderList();
+    });
+
+    container.querySelector("#filter-stars").addEventListener("change", e => {
+      starsFilter = e.target.value;
+      localStorage.setItem("embervale_sidequestStars", starsFilter);
+      renderList();
+    });
+
+    container.querySelector("#collapse-overlay").addEventListener("click", e => {
+      const shouldCollapse = container.classList.toggle("collapsed");
+      Array.from(container.children).forEach((c, i) => {
+        if (i > 0) c.style.display = shouldCollapse ? "none" : "";
+      });
+      e.target.textContent = shouldCollapse ? "▶" : "🔽";
+    });
+  }
+
+  function updateUI() {
+    const board = document.querySelector(".bounty-board");
+    if (board && !container) {
+      const sortKey = localStorage.getItem("embervale_sortKey") || "xpPerSta";
+      const includeItemValue = localStorage.getItem("embervale_includeItems") === "true";
+      const alertWeeklies = localStorage.getItem("embervale_alertWeeklies") === "true";
+      const highlightSideQuests = localStorage.getItem("embervale_highlightSideQuests") === "true";
+      const classFilter = localStorage.getItem("embervale_sidequestClass") || "None";
+      const typeFilter = localStorage.getItem("embervale_sidequestType") || "None";
+      const starsFilter = localStorage.getItem("embervale_sidequestStars") || "None";
+      const bounties = extractBountyData(includeItemValue);
+      displayOverlay(bounties, sortKey, includeItemValue, alertWeeklies, highlightSideQuests, classFilter, typeFilter, starsFilter);
+    } else if (!board && container) {
+      container.remove();
+      container = null;
+    }
+  }
+
+  const observe = new MutationObserver(updateUI);
+  observe.observe(document.body, { childList: true, subtree: true });
+
+  waitForElement(".bounty-board").then(updateUI);
 })();

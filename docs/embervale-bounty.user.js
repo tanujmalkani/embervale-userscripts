@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Embervale Bounty Analyzer (Side Quest Edition)
 // @namespace    http://tampermonkey.net/
-// @version      2.0
-// @description  Sort, highlight, and filter bounties by XP/STA, coins, weekly type, and side quest filters
+// @version      2.1
+// @description  Sort, highlight, and filter bounties by XP/STA, coins, class, type, stars with compact side quest UI
 // @match        https://embervale.tv/*
 // @grant        none
 // @updateURL    https://tanujmalkani.github.io/embervale-userscripts/embervale-bounty.user.js
@@ -121,7 +121,7 @@
       bounty.element.style.boxShadow = style[color][1];
     }
   }
-  function displayOverlay(bounties, sortKey, includeItemValue, alertWeeklies, highlightSideQuests, classFilter, typeFilter, starsFilter) {
+  function displayOverlay(bounties, sortKey, includeItemValue, highlightSideQuests, classFilter, typeFilter, starsFilter) {
     if (container) container.remove();
     clearHighlights();
 
@@ -134,12 +134,13 @@
     container.style.color = "#fff";
     container.style.padding = "16px";
     container.style.borderRadius = "12px";
+    container.style.fontSize = "13px";
     container.style.boxShadow = "0 8px 24px rgba(0,0,0,0.6)";
     container.style.fontFamily = "Segoe UI, sans-serif";
     container.style.zIndex = 999999;
     container.style.maxHeight = "80vh";
     container.style.overflowY = "auto";
-    container.style.minWidth = "340px";
+    container.style.minWidth = "350px";
 
     const header = document.createElement("div");
     header.style.display = "flex";
@@ -151,23 +152,41 @@
       <button id="collapse-overlay" style="background:none;border:none;color:#ccc;font-size:16px;">🔽</button>
     `;
     container.appendChild(header);
+     // Make the overlay draggable via the header
+  let isDragging = false, offsetX = 0, offsetY = 0;
+  header.style.cursor = "move";
+  header.addEventListener("mousedown", e => {
+    isDragging = true;
+    offsetX = e.clientX - container.getBoundingClientRect().left;
+    offsetY = e.clientY - container.getBoundingClientRect().top;
+  });
+  document.addEventListener("mousemove", e => {
+    if (isDragging) {
+      container.style.top = `${e.clientY - offsetY}px`;
+      container.style.left = `${e.clientX - offsetX}px`;
+      container.style.right = "auto";
+    }
+  });
+  document.addEventListener("mouseup", () => (isDragging = false));
 
     const options = document.createElement("div");
     options.style.marginBottom = "12px";
     options.innerHTML = `
       <label><input type="checkbox" id="toggle-item-value" ${includeItemValue ? "checked" : ""}/> Include item value</label><br>
-      <label><input type="checkbox" id="toggle-weekly-alert" ${alertWeeklies ? "checked" : ""}/> Alert for Weeklies</label><br>
-      <label><input type="checkbox" id="toggle-sidequest" ${highlightSideQuests ? "checked" : ""}/> Highlight Side Quests</label><br><br>
-      <div><b>Side Quest Filters:</b></div>
-      <label>Class:
-        <select id="filter-class">${CLASS_OPTIONS.map(c => `<option ${c === classFilter ? "selected" : ""}>${c}</option>`).join("")}</select>
-      </label><br>
-      <label>Type:
-        <select id="filter-type">${TYPE_OPTIONS.map(t => `<option ${t === typeFilter ? "selected" : ""}>${t}</option>`).join("")}</select>
-      </label><br>
-      <label>Stars:
-        <select id="filter-stars">${STAR_OPTIONS.map(s => `<option ${s === starsFilter ? "selected" : ""}>${s}</option>`).join("")}</select>
-      </label>
+      <label><input type="checkbox" id="toggle-sidequest" ${highlightSideQuests ? "checked" : ""}/> Highlight Side Quests</label>
+      <div id="sidequest-filters" style="margin-top:8px; ${highlightSideQuests ? "" : "display:none"};">
+        <div style="display:flex;justify-content: center;gap:8px;flex-wrap:wrap;">
+          <label>Class:
+            <select id="filter-class">${CLASS_OPTIONS.map(c => `<option ${c === classFilter ? "selected" : ""}>${c}</option>`).join("")}</select>
+          </label>
+          <label>Type:
+            <select id="filter-type">${TYPE_OPTIONS.map(t => `<option ${t === typeFilter ? "selected" : ""}>${t}</option>`).join("")}</select>
+          </label>
+          <label>Stars:
+            <select id="filter-stars">${STAR_OPTIONS.map(s => `<option ${s === starsFilter ? "selected" : ""}>${s}</option>`).join("")}</select>
+          </label>
+        </div>
+      </div>
     `;
     container.appendChild(options);
 
@@ -182,19 +201,14 @@
     `;
     container.appendChild(sortRow);
 
-    const alertDiv = document.createElement("div");
-    alertDiv.id = "weekly-alert";
-    alertDiv.style.color = "#ffd700";
-    container.appendChild(alertDiv);
-
     const list = document.createElement("div");
     list.id = "bounty-list";
     container.appendChild(list);
 
     document.body.appendChild(container);
+
     function renderList() {
       list.innerHTML = "";
-      alertDiv.innerHTML = "";
       clearHighlights();
 
       const sorted = [...bounties].sort((a, b) =>
@@ -206,31 +220,10 @@
       highlightBounty(sorted[0], "gold");
 
       sorted.forEach(b => {
-        const isWeekly =
-          alertWeeklies &&
-          typeFilter !== "None" &&
-          b.textContent.includes(`type: ${typeFilter.toLowerCase()}`);
-
-        const isClassMatch =
-          classFilter !== "None" &&
-          b.textContent.includes(classFilter.toLowerCase());
-
-        const isTypeMatch =
-          typeFilter !== "None" &&
-          b.textContent.includes(typeFilter.toLowerCase());
-
-        const isStarsMatch =
-          starsFilter !== "None" &&
-          b.textContent.includes(`${starsFilter}★`);
-
-        const isSideQuest =
-          highlightSideQuests && (isClassMatch || isTypeMatch || isStarsMatch);
-
-        if (isWeekly) {
-          const div = document.createElement("div");
-          div.textContent = `💥💥 Weekly : ${b.name} 💥💥`;
-          alertDiv.appendChild(div);
-        }
+        const isClassMatch = classFilter !== "None" && b.textContent.includes(classFilter.toLowerCase());
+        const isTypeMatch = typeFilter !== "None" && b.textContent.includes(typeFilter.toLowerCase());
+        const isStarsMatch = starsFilter !== "None" && b.textContent.includes(`${starsFilter}★`);
+        const isSideQuest = highlightSideQuests && (isClassMatch || isTypeMatch || isStarsMatch);
 
         if (isSideQuest) highlightBounty(b, "purple");
 
@@ -249,7 +242,6 @@
     }
 
     renderList();
-
     container.querySelector("#bounty-sort-mode").addEventListener("change", e => {
       sortKey = e.target.value;
       localStorage.setItem("embervale_sortKey", sortKey);
@@ -263,15 +255,10 @@
       renderList();
     });
 
-    container.querySelector("#toggle-weekly-alert").addEventListener("change", e => {
-      alertWeeklies = e.target.checked;
-      localStorage.setItem("embervale_alertWeeklies", alertWeeklies);
-      renderList();
-    });
-
     container.querySelector("#toggle-sidequest").addEventListener("change", e => {
       highlightSideQuests = e.target.checked;
       localStorage.setItem("embervale_highlightSideQuests", highlightSideQuests);
+      document.getElementById("sidequest-filters").style.display = highlightSideQuests ? "" : "none";
       renderList();
     });
 
@@ -307,13 +294,12 @@
     if (board && !container) {
       const sortKey = localStorage.getItem("embervale_sortKey") || "xpPerSta";
       const includeItemValue = localStorage.getItem("embervale_includeItems") === "true";
-      const alertWeeklies = localStorage.getItem("embervale_alertWeeklies") === "true";
       const highlightSideQuests = localStorage.getItem("embervale_highlightSideQuests") === "true";
       const classFilter = localStorage.getItem("embervale_sidequestClass") || "None";
       const typeFilter = localStorage.getItem("embervale_sidequestType") || "None";
       const starsFilter = localStorage.getItem("embervale_sidequestStars") || "None";
       const bounties = extractBountyData(includeItemValue);
-      displayOverlay(bounties, sortKey, includeItemValue, alertWeeklies, highlightSideQuests, classFilter, typeFilter, starsFilter);
+      displayOverlay(bounties, sortKey, includeItemValue, highlightSideQuests, classFilter, typeFilter, starsFilter);
     } else if (!board && container) {
       container.remove();
       container = null;

@@ -254,14 +254,20 @@
         const el = document.createElement("div");
         el.style.borderBottom = "1px solid #333";
         el.style.padding = "6px 0";
+        el.style.cursor = "pointer";
         el.innerHTML = `
           <div style="font-weight:bold;color:${isSideQuest ? '#c186f6' : '#eee'};">
-            ${isSideQuest ? `💠 Side Quest Match: ${b.name}` : `• ${b.name}`}
+          ${isSideQuest ? `💠 Side Quest Match: ${b.name}` : `• ${b.name}`}
           </div>
           <div>XP: ${b.xp} | STA: ${b.stamina} | Coins: ${b.coins}</div>
           <div>XP/STA: ${b.xpPerSta} | C/STA: ${b.coinsPerSta}</div>
         `;
-        list.appendChild(el);
+
+      el.addEventListener("click", () => {
+        b.element.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+
+list.appendChild(el);
       });
     }
 

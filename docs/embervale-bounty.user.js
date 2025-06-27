@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         Embervale Bounty Analyzer (Side Quest Edition)
+// @name         Embervale Bounty Analyzer (Final Edition)
 // @namespace    http://tampermonkey.net/
-// @version      2.1
-// @description  Sort, highlight, and filter bounties by XP/STA, coins, class, type, stars with compact side quest UI
+// @version      2.2
+// @description  Sort, highlight, and filter bounties by XP/STA, coins, class, type, stars, with glossary detection and draggable compact UI
 // @match        https://embervale.tv/*
 // @grant        none
 // @updateURL    https://tanujmalkani.github.io/embervale-userscripts/embervale-bounty.user.js
@@ -83,7 +83,10 @@
     const bountyItems = document.querySelectorAll(".bounty-item");
 
     bountyItems.forEach(item => {
-      const name = item.querySelector(".bounty-title-container span")?.textContent.trim() || "Unknown";
+      const titleSpan = item.querySelector(".bounty-title-container span");
+      const hasGlossary = titleSpan && titleSpan.style.borderBottom && titleSpan.style.borderBottom !== "";
+
+      const name = titleSpan?.textContent.trim() || "Unknown";
       const xp = getNumberFromItem(item, "core/xp.webp");
       const stamina = getNumberFromItem(item, "stamina.webp");
       const coins = parseCoins(item, includeItemValue);
@@ -94,6 +97,7 @@
         xp,
         stamina,
         coins,
+        hasGlossary,
         textContent,
         xpPerSta: stamina ? (xp / stamina).toFixed(2) : "∞",
         coinsPerSta: stamina ? (coins / stamina).toFixed(2) : "∞",
@@ -134,9 +138,9 @@
     container.style.color = "#fff";
     container.style.padding = "16px";
     container.style.borderRadius = "12px";
-    container.style.fontSize = "13px";
     container.style.boxShadow = "0 8px 24px rgba(0,0,0,0.6)";
     container.style.fontFamily = "Segoe UI, sans-serif";
+    container.style.fontSize = "13px";
     container.style.zIndex = 999999;
     container.style.maxHeight = "80vh";
     container.style.overflowY = "auto";
@@ -147,27 +151,27 @@
     header.style.justifyContent = "space-between";
     header.style.alignItems = "center";
     header.style.marginBottom = "12px";
+    header.style.cursor = "move";
     header.innerHTML = `
-      <div style="font-weight: bold; font-size: 16px;">🗡 Embervale Bounties</div>
-      <button id="collapse-overlay" style="background:none;border:none;color:#ccc;font-size:16px;">🔽</button>
+      <div style="font-weight: bold; font-size: 14px;">🗡 Embervale Bounties</div>
+      <button id="collapse-overlay" style="background:none;border:none;color:#ccc;font-size:14px;">🔽</button>
     `;
     container.appendChild(header);
-     // Make the overlay draggable via the header
-  let isDragging = false, offsetX = 0, offsetY = 0;
-  header.style.cursor = "move";
-  header.addEventListener("mousedown", e => {
-    isDragging = true;
-    offsetX = e.clientX - container.getBoundingClientRect().left;
-    offsetY = e.clientY - container.getBoundingClientRect().top;
-  });
-  document.addEventListener("mousemove", e => {
-    if (isDragging) {
-      container.style.top = `${e.clientY - offsetY}px`;
-      container.style.left = `${e.clientX - offsetX}px`;
-      container.style.right = "auto";
-    }
-  });
-  document.addEventListener("mouseup", () => (isDragging = false));
+
+    let isDragging = false, offsetX = 0, offsetY = 0;
+    header.addEventListener("mousedown", e => {
+      isDragging = true;
+      offsetX = e.clientX - container.getBoundingClientRect().left;
+      offsetY = e.clientY - container.getBoundingClientRect().top;
+    });
+    document.addEventListener("mousemove", e => {
+      if (isDragging) {
+        container.style.top = `${e.clientY - offsetY}px`;
+        container.style.left = `${e.clientX - offsetX}px`;
+        container.style.right = "auto";
+      }
+    });
+    document.addEventListener("mouseup", () => (isDragging = false));
 
     const options = document.createElement("div");
     options.style.marginBottom = "12px";
@@ -175,7 +179,7 @@
       <label><input type="checkbox" id="toggle-item-value" ${includeItemValue ? "checked" : ""}/> Include item value</label><br>
       <label><input type="checkbox" id="toggle-sidequest" ${highlightSideQuests ? "checked" : ""}/> Highlight Side Quests</label>
       <div id="sidequest-filters" style="margin-top:8px; ${highlightSideQuests ? "" : "display:none"};">
-        <div style="display:flex;justify-content: center;gap:8px;flex-wrap:wrap;">
+        <div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap;">
           <label>Class:
             <select id="filter-class">${CLASS_OPTIONS.map(c => `<option ${c === classFilter ? "selected" : ""}>${c}</option>`).join("")}</select>
           </label>
@@ -217,7 +221,27 @@
           : parseFloat(b.coinsPerSta) - parseFloat(a.coinsPerSta)
       );
 
-      highlightBounty(sorted[0], "gold");
+      const glossaryMatches = sorted.filter(b => b.hasGlossary);
+      if (glossaryMatches.length) {
+        const glossaryLine = document.createElement("div");
+        glossaryLine.style.color = "#ffd700";
+        glossaryLine.style.fontWeight = "bold";
+        glossaryLine.style.marginBottom = "8px";
+        glossaryLine.textContent = `⭐ Bounty with Glossary Entry: ${glossaryMatches.map(b => b.name).join(", ")}`;
+        list.appendChild(glossaryLine);
+      }
+
+      if (sorted.length > 0) {
+        highlightBounty(sorted[0], "gold");
+        const maxLine = document.createElement("div");
+        maxLine.style.color = "#ffd700";
+        maxLine.style.fontWeight = "bold";
+        maxLine.style.marginBottom = "8px";
+        maxLine.textContent = sortKey === "xpPerSta"
+          ? `⭐ Max EXP/Sta: ${sorted[0].name}`
+          : `⭐ Max Coins/Sta: ${sorted[0].name}`;
+        list.appendChild(maxLine);
+      }
 
       sorted.forEach(b => {
         const isClassMatch = classFilter !== "None" && b.textContent.includes(classFilter.toLowerCase());

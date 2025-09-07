@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Embervale Bounty Analyzer (Final Edition)
 // @namespace    http://tampermonkey.net/
-// @version      2.2
+// @version      2.2.1
 // @description  Sort, highlight, and filter bounties by XP/STA, coins, class, type, stars, with glossary detection and draggable compact UI
 // @match        https://embervale.tv/*
 // @grant        none
@@ -83,7 +83,8 @@
     const bountyItems = document.querySelectorAll(".bounty-item");
 
     bountyItems.forEach(item => {
-      const titleSpan = item.querySelector(".bounty-title-container span");
+      const spans = item.querySelectorAll(".bounty-title-container span");
+      const titleSpan = spans[1]; // last span has text
       const hasGlossary = titleSpan && titleSpan.style.borderBottom && titleSpan.style.borderBottom !== "";
 
       const name = titleSpan?.textContent.trim() || "Unknown";

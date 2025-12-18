@@ -1,19 +1,16 @@
 // ==UserScript==
 // @name         Embervale Bounty Analyzer
 // @namespace    https://embervale.tv/
-// @version      2.5.0
-// @description  Embervale bounty analyzer with sorting, side-quest highlighting, draggable & minimizable overlay
-// @match        https://embervale.tv/*
+// @version      3.0.0
+// @description  Compact bounty overlay with badges, best/side-quest dual highlights, draggable & minimizable UI
 // @updateURL    https://tanujmalkani.github.io/embervale-userscripts/embervale-bounty.user.js
 // @downloadURL  https://tanujmalkani.github.io/embervale-userscripts/embervale-bounty.user.js
+// @match        https://embervale.tv/*
 // @grant        none
 // ==/UserScript==
 
 (function () {
   'use strict';
-
-  let overlay = null;
-  let minimized = false;
 
   /* =========================
      HELPERS
@@ -21,18 +18,19 @@
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 
-  const LS = {
-    sort: 'ev_sort',
-    sideEnabled: 'ev_side_enabled',
-    sideClass: 'ev_side_class',
-    sideType: 'ev_side_type',
-    sideStars: 'ev_side_stars',
-    posX: 'ev_overlay_x',
-    posY: 'ev_overlay_y',
-    minimized: 'ev_overlay_min'
-  };
+  function normalizeName(name) {
+    return name
+      .toLowerCase()
+      .replace(/[_\-]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
 
-    const MONSTER_TYPE_MAP = {
+  /* =========================
+     MONSTER → TYPE MAP
+     (PASTE AUTO-GENERATED MAP HERE)
+  ========================= */
+  const MONSTER_TYPE_MAP = {
         "abnormous tick": "Insect",
         "abyss wing": "Abomination",
         "accursed captain hawk": "Undead",
@@ -604,13 +602,21 @@
         "yeti wisp": "Elemental",
         "zombie forest flower": "Undead",
     };
-    function normalizeName(name) {
-        return name
-            .toLowerCase()
-            .replace(/[_\-]+/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim();
-    }
+
+  /* =========================
+     STORAGE KEYS
+  ========================= */
+  const LS = {
+    sort: 'ev_sort',
+    sideEnabled: 'ev_side_enabled',
+    sideClass: 'ev_side_class',
+    sideStars: 'ev_side_stars',
+    sideType: 'ev_side_type',
+    posX: 'ev_overlay_x',
+    posY: 'ev_overlay_y',
+    minimized: 'ev_overlay_min'
+  };
+
   /* =========================
      PARSE BOUNTIES
   ========================= */
@@ -618,9 +624,11 @@
     const results = [];
 
     $$('.bounty-item').forEach(item => {
-      const name =
-        item.querySelector('.bounty-title span')?.textContent.trim() ||
-        'Unknown';
+      const rawName =
+        item.querySelector('.bounty-title span')?.textContent.trim() || 'Unknown';
+
+      const normalized = normalizeName(rawName);
+      const type = MONSTER_TYPE_MAP[normalized] || 'Humanoid';
 
       let bountyClass = null;
       const classImg = item.querySelector('.bounty-class-icon');
@@ -646,7 +654,8 @@
           box.querySelector('.bounty-stat-value')?.textContent.trim() || '0',
           10
         );
-        const icon = box.querySelector('.bounty-stat-icon')?.style.backgroundImage || '';
+        const icon =
+          box.querySelector('.bounty-stat-icon')?.style.backgroundImage || '';
         if (icon.includes('xp.webp')) xp = val;
         if (icon.includes('stamina.webp')) stamina = val;
       });
@@ -659,10 +668,6 @@
       });
 
       const coins = silver * 100 + copper;
-        const rawName = item.querySelector('.bounty-title span')?.textContent.trim() || 'Unknown';
-
-        const normalizedName = normalizeName(rawName);
-        const type = MONSTER_TYPE_MAP[normalizedName] || 'Humanoid';
 
       results.push({
         name: rawName,
@@ -682,151 +687,147 @@
   }
 
   /* =========================
-     HIGHLIGHTING
+     MATCH SIDE QUEST (OR LOGIC)
   ========================= */
-  function clearHighlights(bounties) {
-    bounties.forEach(b => {
-      b.element.style.outline = '';
-      b.element.style.boxShadow = '';
-    });
+  function matchesSideQuest(b) {
+    if (localStorage.getItem(LS.sideEnabled) !== 'true') return false;
+
+    const fClass = localStorage.getItem(LS.sideClass) || 'none';
+    const fStars = localStorage.getItem(LS.sideStars) || 'none';
+    const fType  = localStorage.getItem(LS.sideType)  || 'none';
+
+    if (fClass === 'none' && fStars === 'none' && fType === 'none') return false;
+
+    return (
+      (fClass !== 'none' && b.class === fClass) ||
+      (fStars !== 'none' && b.stars === Number(fStars)) ||
+      (fType  !== 'none' && b.type === fType)
+    );
   }
-
-  function highlightTopBounty(bounty) {
-    if (!bounty) return;
-    bounty.element.style.outline = '2px solid gold';
-    bounty.element.style.boxShadow = '0 0 12px rgba(255,215,0,0.7)';
-  }
-
-function applySideQuestHighlight(bounties) {
-  if (localStorage.getItem(LS.sideEnabled) !== 'true') return;
-
-  const fClass = localStorage.getItem(LS.sideClass) || 'none';
-  const fStars = localStorage.getItem(LS.sideStars) || 'none';
-  const fType = localStorage.getItem(LS.sideType) || 'none';
-
-  // If no filters selected → no highlight
-  if (fClass === 'none' && fStars === 'none' && fType === 'none') return;
-
-  bounties.forEach(b => {
-    let match = false;
-
-    if (fClass !== 'none' && b.class === fClass) match = true;
-    if (fStars !== 'none' && b.stars === Number(fStars)) match = true;
-    if (fType !== 'none' && b.type === fType) match = true;
-
-    if (match) {
-      b.element.style.outline = '2px solid #a855f7';
-      b.element.style.boxShadow = '0 0 10px rgba(168,85,247,0.7)';
-    }
-  });
-}
-
 
   /* =========================
-     OVERLAY UI
+     PAGE HIGHLIGHTING
   ========================= */
+  function clearPageHighlight(b) {
+    b.element.style.borderLeft = '';
+    b.element.style.outline = '';
+    b.element.style.boxShadow = '';
+  }
+
+  function applyBestHighlight(b) {
+    b.element.style.border = '2px solid gold';
+    b.element.style.borderRadius = '10px';
+  }
+
+  function applySideHighlight(b) {
+      b.element.style.outline = '2px solid #a855f7';
+      b.element.style.outlineOffset = '4px'; // <-- key spacing
+      b.element.style.boxShadow = '0 0 8px rgba(168,85,247,0.6)';
+  }
+
+  /* =========================
+     BADGES
+  ========================= */
+  const BADGE = `
+    display:inline-block;
+    padding:1px 6px;
+    margin-left:4px;
+    border-radius:999px;
+    font-size:10px;
+    background:#2a2a2a;
+    border:1px solid #444;
+    color:#ddd;
+  `;
+
+  function badge(text) {
+    return `<span style="${BADGE}">${text}</span>`;
+  }
+
+  /* =========================
+     OVERLAY
+  ========================= */
+  let overlay = null;
+
   function buildOverlay() {
     overlay = document.createElement('div');
     overlay.style.cssText = `
       position:fixed;
-      background:rgba(20,20,20,0.85);
-      backdrop-filter:blur(6px);
+      top:16px;
+      right:16px;
+      background:rgba(18,18,18,0.9);
       color:#fff;
-      z-index:999999;
-      padding:10px;
-      border-radius:10px;
       font-family:system-ui,sans-serif;
       font-size:11px;
-      min-width:300px;
+      border-radius:10px;
+      padding:8px;
+      z-index:999999;
       max-height:80vh;
       overflow:auto;
+      min-width:340px;
     `;
 
-    const x = localStorage.getItem(LS.posX);
-    const y = localStorage.getItem(LS.posY);
-    overlay.style.left = x ? `${x}px` : 'auto';
-    overlay.style.top = y ? `${y}px` : '16px';
-    overlay.style.right = x ? 'auto' : '16px';
-
     overlay.innerHTML = `
-      <div id="ev-header"
-           style="display:flex;justify-content:space-between;
-                  align-items:center;cursor:move">
-        <div id="ev-title" style="font-weight:bold">
-          🗡 Embervale Bounty Analyzer
-        </div>
-        <button id="ev-min"
-                style="background:none;border:none;color:#ccc;
-                       cursor:pointer;font-size:12px">
-          ▾
-        </button>
+      <div id="ev-header" style="cursor:move;font-weight:700;margin-bottom:6px">
+        🗡 Embervale Bounties
       </div>
 
       <div id="ev-body">
-        <div style="text-align:center;margin:6px 0">
+        <div style="text-align:center;margin-bottom:6px">
           <select id="ev-sort">
             <option value="xpPerSta">XP / STA</option>
             <option value="coinsPerSta">Coins / STA</option>
           </select>
         </div>
 
-        <div style="text-align:center;margin-bottom:6px">
+        <div style="text-align:center;margin-bottom:4px">
           <label>
             <input type="checkbox" id="ev-side-enabled">
             Highlight Side Quest
           </label>
         </div>
 
-        <div id="ev-side-filters"
-             style="display:none;gap:6px;justify-content:center;
-                    align-items:center;margin-bottom:8px">
+        <div id="ev-filters" style="display:none;gap:4px;justify-content:center">
           <select id="ev-side-class">
             <option value="none">Class</option>
-            <option value="warrior">Warrior</option>
-            <option value="knight">Knight</option>
-            <option value="rogue">Rogue</option>
-            <option value="ranger">Ranger</option>
-            <option value="mage">Mage</option>
+            <option>warrior</option>
+            <option>knight</option>
+            <option>rogue</option>
+            <option>ranger</option>
+            <option>mage</option>
           </select>
 
-        <select id="ev-side-type">
-          <option value="none">Type</option>
-          <option value="Abomination">Abomination</option>
-          <option value="Aquatic">Aquatic</option>
-          <option value="Beast">Beast</option>
-          <option value="Construct">Construct</option>
-          <option value="Dragon">Dragon</option>
-          <option value="Elemental">Elemental</option>
-          <option value="Humanoid">Humanoid</option>
-          <option value="Insect">Insect</option>
-          <option value="Mimic">Mimic</option>
-          <option value="Plant">Plant</option>
-          <option value="Slime">Slime</option>
-          <option value="Undead">Undead</option>
-        </select>
-
+          <select id="ev-side-type">
+            <option value="none">Type</option>
+            <option>Insect</option>
+            <option>Undead</option>
+            <option>Dragon</option>
+            <option>Aquatic</option>
+            <option>Beast</option>
+            <option>Humanoid</option>
+            <option>Plant</option>
+            <option>Slime</option>
+            <option>Mimic</option>
+            <option>Construct</option>
+            <option>Elemental</option>
+          </select>
 
           <select id="ev-side-stars">
             <option value="none">Stars</option>
-            <option value="1">1★</option>
-            <option value="2">2★</option>
-            <option value="3">3★</option>
-            <option value="4">4★</option>
-            <option value="5">5★</option>
+            <option value="1">★1</option>
+            <option value="2">★2</option>
+            <option value="3">★3</option>
+            <option value="4">★4</option>
+            <option value="5">★5</option>
           </select>
         </div>
 
         <hr style="border-color:#333">
 
-        <div id="ev-list" style="text-align:center"></div>
+        <div id="ev-list"></div>
       </div>
     `;
 
     document.body.appendChild(overlay);
-    enableDrag();
-
-    minimized = localStorage.getItem(LS.minimized) === 'true';
-    applyMinimizeState();
 
     $('#ev-sort').value = localStorage.getItem(LS.sort) || 'xpPerSta';
     $('#ev-side-enabled').checked = localStorage.getItem(LS.sideEnabled) === 'true';
@@ -834,63 +835,28 @@ function applySideQuestHighlight(bounties) {
     $('#ev-side-type').value = localStorage.getItem(LS.sideType) || 'none';
     $('#ev-side-stars').value = localStorage.getItem(LS.sideStars) || 'none';
 
-    $('#ev-side-filters').style.display =
+    $('#ev-filters').style.display =
       $('#ev-side-enabled').checked ? 'flex' : 'none';
 
-    $('#ev-min').onclick = toggleMinimize;
-    $('#ev-title').onclick = toggleMinimize;
+    overlay.addEventListener('change', refreshOverlay);
+    $('#ev-header').onclick = toggleMinimize;
 
-    overlay.addEventListener('change', refresh);
+    enableDrag();
   }
+
+  let minimized = localStorage.getItem(LS.minimized) === 'true';
 
   function toggleMinimize() {
     minimized = !minimized;
     localStorage.setItem(LS.minimized, minimized);
-    applyMinimizeState();
-  }
-
-  function applyMinimizeState() {
     $('#ev-body').style.display = minimized ? 'none' : 'block';
-    $('#ev-min').textContent = minimized ? '▸' : '▾';
-  }
-
-  /* =========================
-     DRAG HANDLER
-  ========================= */
-  function enableDrag() {
-    const handle = $('#ev-header');
-    let startX, startY, startLeft, startTop, dragging = false;
-
-    handle.addEventListener('mousedown', e => {
-      dragging = true;
-      startX = e.clientX;
-      startY = e.clientY;
-      startLeft = overlay.offsetLeft;
-      startTop = overlay.offsetTop;
-      document.body.style.userSelect = 'none';
-    });
-
-    document.addEventListener('mousemove', e => {
-      if (!dragging) return;
-      overlay.style.left = `${startLeft + (e.clientX - startX)}px`;
-      overlay.style.top = `${startTop + (e.clientY - startY)}px`;
-      overlay.style.right = 'auto';
-    });
-
-    document.addEventListener('mouseup', () => {
-      if (!dragging) return;
-      dragging = false;
-      document.body.style.userSelect = '';
-      localStorage.setItem(LS.posX, overlay.offsetLeft);
-      localStorage.setItem(LS.posY, overlay.offsetTop);
-    });
   }
 
   /* =========================
      RENDER
   ========================= */
-  function refresh() {
-    if (!overlay || minimized) return;
+  function refreshOverlay() {
+    if (!overlay) return;
 
     localStorage.setItem(LS.sort, $('#ev-sort').value);
     localStorage.setItem(LS.sideEnabled, $('#ev-side-enabled').checked);
@@ -898,33 +864,91 @@ function applySideQuestHighlight(bounties) {
     localStorage.setItem(LS.sideType, $('#ev-side-type').value);
     localStorage.setItem(LS.sideStars, $('#ev-side-stars').value);
 
-    $('#ev-side-filters').style.display =
+    $('#ev-filters').style.display =
       $('#ev-side-enabled').checked ? 'flex' : 'none';
 
     const list = $('#ev-list');
     list.innerHTML = '';
 
     const bounties = parseAllBounties();
-    clearHighlights(bounties);
+    bounties.forEach(clearPageHighlight);
 
     const sortKey = $('#ev-sort').value;
     bounties.sort((a, b) => b[sortKey] - a[sortKey]);
 
-    highlightTopBounty(bounties[0]);
-    applySideQuestHighlight(bounties);
+    const best = bounties[0];
+    applyBestHighlight(best);
 
     bounties.forEach(b => {
+      if (matchesSideQuest(b)) applySideHighlight(b);
+    });
+
+    bounties.forEach((b, i) => {
+      const isBest = b === best;
+      const isSide = matchesSideQuest(b);
+
       const row = document.createElement('div');
-      row.style.cssText = 'margin-bottom:8px;cursor:pointer';
+      row.style.cssText = `
+          padding:4px 6px;
+          margin-bottom:4px;
+          border-radius:8px;
+          border: ${isBest ? '2px solid gold' : '1px solid #333'};
+          ${isSide ? 'outline:2px solid #a855f7; outline-offset:3px;' : ''}
+        `;
+
       row.innerHTML = `
-        <strong>${b.name}</strong><br>
-        XP:${b.xp} STA:${b.stamina} Coins:${b.coins}<br>
-        XP/STA:${b.xpPerSta} | C/STA:${b.coinsPerSta}
+        <div style="display:flex;justify-content:space-between">
+          <div style="font-weight:600">
+            ${isBest ? '<span style="color:gold">🥇</span> ' : ''}
+            ${b.name}
+          </div>
+          <div>
+            ${badge(b.type)}
+            ${badge(b.class)}
+            ${badge('★' + b.stars)}
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:space-between;color:#ccc">
+          <div>XP ${b.xp} | STA ${b.stamina} | 💰 ${b.coins}</div>
+          <div>XP/STA ${b.xpPerSta} | C/STA ${b.coinsPerSta}</div>
+        </div>
       `;
+
       row.onclick = () =>
         b.element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
       list.appendChild(row);
     });
+  }
+
+  /* =========================
+     DRAG
+  ========================= */
+  function enableDrag() {
+    const h = $('#ev-header');
+    let sx, sy, sl, st, drag = false;
+
+    h.onmousedown = e => {
+      drag = true;
+      sx = e.clientX;
+      sy = e.clientY;
+      sl = overlay.offsetLeft;
+      st = overlay.offsetTop;
+      document.body.style.userSelect = 'none';
+    };
+
+    document.onmousemove = e => {
+      if (!drag) return;
+      overlay.style.left = sl + (e.clientX - sx) + 'px';
+      overlay.style.top = st + (e.clientY - sy) + 'px';
+      overlay.style.right = 'auto';
+    };
+
+    document.onmouseup = () => {
+      drag = false;
+      document.body.style.userSelect = '';
+    };
   }
 
   /* =========================
@@ -932,21 +956,17 @@ function applySideQuestHighlight(bounties) {
   ========================= */
   function updateLifecycle() {
     const board = $('.bounty-board');
-
     if (board && !overlay) {
       buildOverlay();
-      refresh();
+      refreshOverlay();
     }
-
     if (!board && overlay) {
       overlay.remove();
       overlay = null;
     }
   }
 
-  new MutationObserver(updateLifecycle).observe(document.body, {
-    childList: true,
-    subtree: true
-  });
+  new MutationObserver(updateLifecycle)
+    .observe(document.body, { childList: true, subtree: true });
 
 })();
